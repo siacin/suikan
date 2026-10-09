@@ -1,0 +1,13 @@
+plugins { id 'com.android.application' }
+android {
+    namespace 'com.suikan.app'
+    compileSdk 36
+    defaultConfig {
+        applicationId 'com.suikan.app'
+        minSdk 26
+        targetSdk 36
+        versionCode 8
+        versionName '0.1.7'
+    }
+    compileOptions { sourceCompatibility JavaVersion.VERSION_1_8; targetCompatibility JavaVersion.VERSION_1_8 }
+}

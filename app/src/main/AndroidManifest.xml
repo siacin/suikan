@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <application android:label="随看" android:icon="@drawable/ic_launcher" android:theme="@style/AppTheme"
+        android:allowBackup="false" android:usesCleartextTraffic="false"
+        android:networkSecurityConfig="@xml/network_security_config" android:supportsRtl="true">
+        <activity android:name=".MainActivity" android:exported="true" android:launchMode="singleTop" android:windowSoftInputMode="adjustResize">
+            <intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent-filter>
+            <intent-filter><action android:name="android.intent.action.SEND" /><category android:name="android.intent.category.DEFAULT" /><data android:mimeType="text/plain" /></intent-filter>
+        </activity>
+        <activity android:name=".LoginActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
+        <service android:name=".SummaryService" android:exported="false" android:foregroundServiceType="dataSync" />
+        <service android:name=".OverlayService" android:exported="false" android:foregroundServiceType="specialUse">
+            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="User-enabled floating video-note button, shown while the user watches another app; removable from its persistent notification." />
+        </service>
+    </application>
+</manifest>

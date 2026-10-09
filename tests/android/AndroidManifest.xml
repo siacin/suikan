@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.suikan.app.tests">
+    <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="36" />
+    <application android:label="SuiKan Tests" />
+    <instrumentation android:name="com.suikan.app.TestHarness" android:targetPackage="com.suikan.app" android:functionalTest="true" />
+    <instrumentation android:name="com.suikan.app.LiveHarness" android:targetPackage="com.suikan.app" android:functionalTest="true" />
+    <instrumentation android:name="com.suikan.app.FeatureHarness" android:targetPackage="com.suikan.app" android:functionalTest="true" />
+    <instrumentation android:name="com.suikan.app.SpeedHarness" android:targetPackage="com.suikan.app" android:functionalTest="true" />
+</manifest>
