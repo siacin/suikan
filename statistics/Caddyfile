@@ -1,0 +1,7 @@
+{$SUIKAN_STATS_HOST} {
+    request_body {
+        max_size 2KB
+    }
+    reverse_proxy statistics:8080
+    # No access logging: do not add the `log` directive without updating the privacy disclosure.
+}

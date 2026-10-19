@@ -65,11 +65,12 @@ public final class OverlayService extends Service {
         if(SummaryService.running){progressText=Ui.text(this,SummaryService.message,14,Ui.ACCENT,true);content.addView(progressText);Ui.gap(content,10);content.addView(Ui.button(this,"停止本次总结",false,v->startService(new Intent(this,SummaryService.class).setAction(SummaryService.STOP))));}
         else{
             content.addView(Ui.text(this,input.isEmpty()?"先从 B 站分享视频给「随看」。":"已分享的链接：\n"+(input.length()>120?input.substring(0,120)+"…":input),12,Ui.MUTED,false));Ui.gap(content,10);
-            if(!input.isEmpty())content.addView(Ui.button(this,"总结已分享的视频",true,v->{try{SummaryService.begin(this,input,"",false);}catch(Exception e){android.widget.Toast.makeText(this,e.getMessage(),android.widget.Toast.LENGTH_LONG).show();}}));
+            if(!input.isEmpty())content.addView(Ui.button(this,"总结已分享的视频",true,v->{try{String latest=new SecureSettings(this).lastInput();if(latest.isEmpty())throw new IllegalArgumentException("请重新分享视频链接");SummaryService.begin(this,latest,"",false);}catch(Exception e){android.widget.Toast.makeText(this,e.getMessage(),android.widget.Toast.LENGTH_LONG).show();}}));
             if(!SummaryService.error.isEmpty()){Ui.gap(content,10);content.addView(Ui.text(this,SummaryService.error,12,Ui.ACCENT,false));}
         }
-        Ui.gap(content,14);List<JSONObject> notes=new LocalStore(this).list();if(!notes.isEmpty()){content.addView(Ui.text(this,"最近保存的笔记",12,Ui.MUTED,true));Ui.gap(content,8);ResultViews.render(this,content,notes.get(0),true,true);}
-        else content.addView(Ui.text(this,"总结完成后，笔记会显示在这里。",14,Ui.MUTED,false));
+        Ui.gap(content,14);List<JSONObject> notes=new LocalStore(this).list();JSONObject matching=null;for(JSONObject note:notes)if(SourceIdentity.matches(note,input,"")){matching=note;break;}
+        if(matching!=null){content.addView(Ui.text(this,"当前分享视频的笔记",12,Ui.MUTED,true));Ui.gap(content,8);ResultViews.render(this,content,matching,true,true);}
+        else content.addView(Ui.text(this,"当前分享的视频还没有可核对的笔记，完成总结后会显示在这里。",14,Ui.MUTED,false));
         Ui.gap(content,10);content.addView(Ui.text(this,"换视频后请重新分享链接。",11,Ui.MUTED,false));
         root.addView(Ui.button(this,"打开随看",false,v->{hidePanel();startActivity(new Intent(this,MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));}));
         int width=Math.min(Ui.dp(this,360),getResources().getDisplayMetrics().widthPixels-Ui.dp(this,24));int height=Math.min(Ui.dp(this,580),getResources().getDisplayMetrics().heightPixels-Ui.dp(this,100));

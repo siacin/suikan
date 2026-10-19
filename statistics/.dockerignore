@@ -1,0 +1,8 @@
+.env
+.env.*
+data/
+*.sqlite3*
+__pycache__/
+test_*.py
+.local-data/
+admin-token.txt

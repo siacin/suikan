@@ -1,0 +1,33 @@
+services:
+  statistics:
+    build: .
+    restart: unless-stopped
+    environment:
+      SUIKAN_ADMIN_TOKEN: ${SUIKAN_ADMIN_TOKEN:?Set a random admin token of at least 32 characters}
+    volumes:
+      - usage-data:/data
+    expose:
+      - "8080"
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+  https:
+    image: caddy:2
+    restart: unless-stopped
+    environment:
+      SUIKAN_STATS_HOST: ${SUIKAN_STATS_HOST:?Set a domain pointing to this server}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - statistics
+volumes:
+  usage-data:
+  caddy-data:
+  caddy-config:

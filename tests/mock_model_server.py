@@ -6,6 +6,7 @@ import socket
 import socketserver
 import threading
 import re
+import hashlib
 
 def fast_result(context,prompt,invalid=False):
     if 'transcript' in context:
@@ -18,11 +19,12 @@ def fast_result(context,prompt,invalid=False):
 
 class Handler(BaseHTTPRequestHandler):
     counts = {}
+    payloads = {}
     def log_message(self, *args):
         pass
 
     def do_GET(self):
-        output = json.dumps(self.counts).encode()
+        output = json.dumps(self.payloads if self.path == '/payloads' else self.counts).encode()
         self.send_response(200)
         self.send_header('Content-Length', str(len(output)))
         self.end_headers()
@@ -34,7 +36,50 @@ class Handler(BaseHTTPRequestHandler):
         body = json.loads(self.rfile.read(length))
         model = body.get('model')
         self.counts[model] = self.counts.get(model, 0) + 1
-        if model == 'context-error':
+        if model.startswith('compat-'):
+            context=body.get('input') or body['messages'][-1]['content']
+            self.payloads.setdefault(model,[]).append({'stream':body.get('stream'), 'hash':hashlib.sha256(context.encode()).hexdigest()})
+            answer={'choices':[{'message':{'content':'{"ok":true}'},'finish_reason':'stop'}]}
+            if model in ('compat-fallback','compat-malformed','compat-premature','compat-always-broken') and body.get('stream'):
+                if model=='compat-malformed':output=b'data: {not-json}\n\n'
+                elif model=='compat-premature':output=b'data: [DONE]\n\n'
+                else:output=b'data: {"choices":[{"delta":{"content":"{\\"ok\\":true}"},"finish_reason":null}]}\n\n'
+            elif model=='compat-always-broken':
+                output=b'{"choices":[{"message":{"content":"{\\"ok\\":true}"},"finish_reason":null}]}'
+            elif not body.get('stream'):
+                output=json.dumps(answer).encode()
+                self.send_response(200);self.send_header('Content-Type','application/json');self.send_header('Content-Length',str(len(output)));self.end_headers();self.wfile.write(output);return
+            else:
+                event={'choices':[{'delta':{'content':'{"ok":true}'},'finish_reason':'stop'}]}
+                text=json.dumps(event)
+                if model=='compat-multiline':text=text.replace('"finish_reason"','\ndata: "finish_reason"')
+                if model=='compat-bom':text='\ufeffdata: '+text+'\n\n'
+                else:text='data: '+text+'\n\n'
+                if model=='compat-cr':text=text.replace('\n','\r')
+                elif model=='compat-crlf':text=text.replace('\n','\r\n')
+                elif model=='compat-unterminated':text=text.rstrip('\n')
+                output=text.encode()
+            self.send_response(200);self.send_header('Content-Type','application/json' if not body.get('stream') else 'application/octet-stream' if model in ('compat-bom','compat-sniff-fragments') else 'text/event-stream')
+            if model=='compat-terminal-reset':self.send_header('Transfer-Encoding','chunked')
+            elif model!='compat-terminal-open':self.send_header('Content-Length',str(len(output)))
+            self.end_headers()
+            try:
+                if model=='compat-terminal-reset':
+                    self.wfile.write(format(len(output),'x').encode()+b'\r\n'+output+b'\r\n');self.wfile.flush();self.connection.shutdown(socket.SHUT_RDWR);self.connection.close()
+                else:
+                    if model=='compat-sniff-fragments':self.wfile.write(output[:1]);self.wfile.flush();time.sleep(.1);output=output[1:]
+                    self.wfile.write(output);self.wfile.flush()
+                    if model=='compat-terminal-open':time.sleep(20)
+            except (BrokenPipeError,ConnectionResetError,ConnectionAbortedError):pass
+            return
+        if model.startswith('single-'):
+            context=json.loads(body.get('input') or body['messages'][-1]['content'])
+            transcript=context.get('transcript','')
+            ids=re.findall(r'^\[(s[^\]\s]+)\] ',transcript,re.M)
+            self.payloads.setdefault(model,[]).append({'chars':len(transcript),'cues':len(ids),'first':ids[0] if ids else '', 'last':ids[-1] if ids else '', 'hash':hashlib.sha256(transcript.encode()).hexdigest(), 'parts': 'parts' in context, 'stream':body.get('stream')})
+            if model.startswith('single-drop-') or (model.startswith('single-retry-') and self.counts[model] == 1):
+                self.connection.shutdown(socket.SHUT_RDWR); self.connection.close(); return
+        if model == 'context-error' or model.startswith('single-input-'):
             output=json.dumps({'error':{'message':'maximum context length exceeded','code':'context_length_exceeded'}}).encode()
             self.send_response(400);self.send_header('Content-Length',str(len(output)));self.end_headers();self.wfile.write(output);return
         if model in ('fast-stream','fast-broken'):
@@ -81,6 +126,9 @@ class Handler(BaseHTTPRequestHandler):
             return
         if model == 'reset-once' and self.counts[model] == 1:
             self.connection.shutdown(socket.SHUT_RDWR); self.connection.close(); return
+        if model == 'echo-format-unsupported' and 'response_format' in body:
+            output=json.dumps({'error':{'message':'response_format json_object is unsupported'}}).encode()
+            self.send_response(400);self.send_header('Content-Length',str(len(output)));self.end_headers();self.wfile.write(output);return
         if model == 'echo-fallback' and 'max_tokens' in body:
             output = json.dumps({'error': {'message': 'max_tokens is unsupported; use max_completion_tokens'}}).encode()
             self.send_response(400)
@@ -88,15 +136,15 @@ class Handler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(output)
             return
-        if model in ('echo', 'echo-fallback', 'deepseek-v4.1-flash', 'glm-5.3-flash'):
-            received = {k: body[k] for k in ('max_tokens', 'max_completion_tokens', 'max_output_tokens', 'thinking', 'reasoning', 'reasoning_effort', 'stream') if k in body}
+        if model in ('echo', 'echo-fallback', 'echo-format-unsupported', 'deepseek-v4.1-flash', 'glm-5.3-flash'):
+            received = {k: body[k] for k in ('max_tokens', 'max_completion_tokens', 'max_output_tokens', 'thinking', 'reasoning', 'reasoning_effort', 'stream', 'response_format') if k in body}
             content = json.dumps({'received': received})
             result = {'output': [{'type': 'message', 'content': [{'type': 'output_text', 'text': content}]}], 'status': 'completed'} if self.path.endswith('/responses') else {'choices': [{'message': {'content': content}, 'finish_reason': 'stop'}]}
         elif model in ('truncated', 'truncated-sse'):
             result = {'choices': [{'message': {'content': '{"ok":true}', 'reasoning_content': 'fixture-private-reasoning'}, 'finish_reason': 'length'}], 'usage': {'completion_tokens': 6000, 'completion_tokens_details': {'reasoning_tokens': 5900}}}
         elif model in ('truncated-responses', 'truncated-responses-sse'):
             result = {'status': 'incomplete', 'incomplete_details': {'reason': 'max_output_tokens'}, 'output': [], 'usage': {'output_tokens': 8000, 'output_tokens_details': {'reasoning_tokens': 7900}}}
-        elif model in ('responses-test', 'responses-sse', 'sse-test', 'keepalive-sse', 'broken-sse', 'slow-sse', 'delayed-model', 'reset-once', 'eof-once', 'chunked-eof-once', 'empty-sse-once', 'empty-json-once'):
+        elif model in ('responses-test', 'responses-sse', 'sse-test', 'keepalive-sse', 'broken-sse', 'slow-sse', 'delayed-model', 'reset-once', 'eof-once', 'chunked-eof-once', 'empty-sse-once', 'empty-json-once', 'handshake-slow-headers'):
             result = {'output': [{'type': 'message', 'content': [{'type': 'output_text', 'text': '{"ok":true}'}]}], 'status': 'completed'} if model.startswith('responses') else {'choices': [{'message': {'content': '{"ok":true}'}, 'finish_reason': 'stop'}]}
         else:
             context = json.loads(body.get('input') or body['messages'][-1]['content'])
@@ -123,6 +171,10 @@ class Handler(BaseHTTPRequestHandler):
                         payload['key_points']=[{'title':f'要点{i+1}','detail':'主要结论。' if concise else '主要结论，以及相应理由、例子和适用条件。','point_ids':[points[min(i,len(points)-1)]['id']]} for i in range(2 if concise else 5)]
                         payload['chapters']=[]
             result = {'choices': [{'message': {'content': json.dumps(payload, ensure_ascii=False)}, 'finish_reason': 'stop'}]}
+        if model.startswith('single-output-'):
+            result['choices'][0]['finish_reason']='length'
+        if model.startswith('single-') and self.path.endswith('/responses'):
+            result={'status':'completed','output':[{'type':'message','content':[{'type':'output_text','text':result['choices'][0]['message']['content']}]}]}
         if model == 'truncated-sse':
             text = 'data: ' + json.dumps({'choices': [{'delta': {'content': '{"ok":true}'}, 'finish_reason': 'length'}]}) + '\n\ndata: ' + json.dumps({'choices': [], 'usage': result['usage']}) + '\n\ndata: [DONE]\n\n'
             output, mime = text.encode(), 'text/event-stream'
@@ -151,6 +203,7 @@ class Handler(BaseHTTPRequestHandler):
         else:
             output, mime = json.dumps(result, ensure_ascii=False).encode(), 'application/json'
         if model == 'delayed-model': time.sleep(190)
+        if model == 'handshake-slow-headers': time.sleep(65)
         self.send_response(200)
         self.send_header('Content-Type', mime)
         self.send_header('Content-Length', str(len(output)))
@@ -168,7 +221,14 @@ if __name__ == '__main__':
     class TLSServer(socketserver.ThreadingTCPServer):
         allow_reuse_address=True
         daemon_threads=True
-    tls=TLSServer(('127.0.0.1',18766),ClosingTLS)
+    tls=TLSServer(('127.0.0.1',18770),ClosingTLS)
     threading.Thread(target=tls.serve_forever,daemon=True).start()
+    class StalledTLS(socketserver.BaseRequestHandler):
+        def handle(self):
+            Handler.counts['tls-stall']=Handler.counts.get('tls-stall',0)+1
+            self.request.recv(4096)
+            time.sleep(70)
+    stalled=TLSServer(('127.0.0.1',18771),StalledTLS)
+    threading.Thread(target=stalled.serve_forever,daemon=True).start()
     print('Local mock model ready on 127.0.0.1:18765', flush=True)
     ThreadingHTTPServer(('127.0.0.1', 18765), Handler).serve_forever()

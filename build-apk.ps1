@@ -4,7 +4,8 @@ param(
     [string]$JdkHome = '',
     [string]$BuildToolsRoot = '',
     [string]$BuildBase = '',
-    [string]$OutputApk = ''
+    [string]$OutputApk = '',
+    [string]$StatisticsUrl = ''
 )
 $ErrorActionPreference = 'Stop'
 $projectRoot = $PSScriptRoot
@@ -19,7 +20,7 @@ $env:JAVA_HOME = $JdkHome
 $env:PATH = (Join-Path $JdkHome 'bin') + ';' + $env:PATH
 if (!$env:JAVA_TOOL_OPTIONS) { $env:JAVA_TOOL_OPTIONS = '-Xms32m -Xmx256m -XX:MaxMetaspaceSize=128m' }
 if (!$BuildBase) { $BuildBase = Join-Path $projectRoot '..\..\work\android-build' }
-if (!$OutputApk) { $OutputApk = Join-Path $projectRoot '..\SuiKan-0.1.7.apk' }
+if (!$OutputApk) { $OutputApk = Join-Path $projectRoot '..\SuiKan-0.1.17.apk' }
 if (!$BuildToolsRoot) {
     $tools = Get-ChildItem -LiteralPath (Join-Path $SdkRoot 'build-tools') -Directory | Sort-Object { [version]($_.Name -replace '-.*$','') } -Descending | Select-Object -First 1
     if (!$tools) { throw 'Android SDK 缺少 build-tools。' }
@@ -45,7 +46,15 @@ $buildManifest = Join-Path $buildRoot 'AndroidManifest.xml'
 $manifestXml.DocumentElement.SetAttribute('package','com.suikan.app')
 $manifestXml.Save($buildManifest)
 Invoke-BuildTool (Join-Path $toolRoot 'aapt2.exe') @('compile','--dir',(Join-Path $main 'res'),'-o',$compiled)
-Invoke-BuildTool (Join-Path $toolRoot 'aapt2.exe') @('link','-o',$resourceApk,'-I',$PlatformJar,'--manifest',$buildManifest,'--java',$generated,'--min-sdk-version','26','--target-sdk-version','36','--version-code','8','--version-name','0.1.7','-A',(Join-Path $main 'assets'),$compiled)
+$assets=Join-Path $buildRoot 'assets'
+Copy-Item -LiteralPath (Join-Path $main 'assets') -Destination $assets -Recurse
+if ($StatisticsUrl) {
+    $statisticsUri=$null
+    if (![uri]::TryCreate($StatisticsUrl,[UriKind]::Absolute,[ref]$statisticsUri) -or $statisticsUri.Scheme -ne 'https' -or !$statisticsUri.Host -or $statisticsUri.UserInfo -or $statisticsUri.Query -or $statisticsUri.Fragment -or $statisticsUri.AbsolutePath -ne '/v1/usage') { throw 'StatisticsUrl 必须是 HTTPS 地址，路径为 /v1/usage，不能带账号、查询参数或片段。' }
+    $statisticsJson=@{endpoint=$StatisticsUrl} | ConvertTo-Json -Compress
+    [IO.File]::WriteAllText((Join-Path $assets 'usage-statistics.json'),$statisticsJson,(New-Object Text.UTF8Encoding($false)))
+}
+Invoke-BuildTool (Join-Path $toolRoot 'aapt2.exe') @('link','-o',$resourceApk,'-I',$PlatformJar,'--manifest',$buildManifest,'--java',$generated,'--min-sdk-version','26','--target-sdk-version','36','--version-code','18','--version-name','0.1.17','-A',$assets,$compiled)
 $sources = @(Get-ChildItem -LiteralPath (Join-Path $main 'java') -Recurse -Filter '*.java') + @(Get-ChildItem -LiteralPath $generated -Recurse -Filter '*.java')
 $sourceList = Join-Path $buildRoot 'sources.txt'
 $sources | ForEach-Object { '"' + $_.FullName.Replace('\','/') + '"' } | Set-Content -LiteralPath $sourceList -Encoding ASCII

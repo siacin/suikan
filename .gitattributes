@@ -1,5 +1,7 @@
 * text=auto eol=lf
 *.bat text eol=crlf
+*.cmd text eol=crlf
 *.jar binary
 *.apk binary
 *.zip binary
+statistics/cloudbase/functions/suikan-statistics/scf_bootstrap text eol=lf

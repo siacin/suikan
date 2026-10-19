@@ -11,6 +11,8 @@ public final class VideoLink {
     public interface Resolver { String resolve(String url) throws Exception; }
     public final String bvid, url;
     public final int page;
+    public String sharedTitle = "";
+    long expectedAid,expectedCid;
     private VideoLink(String bvid, int page) {
         this.bvid = "BV" + bvid.substring(2); this.page = page;
         this.url = "https://www.bilibili.com/video/" + this.bvid + (page > 1 ? "?p=" + page : "");
@@ -31,27 +33,54 @@ public final class VideoLink {
         String value = input == null ? "" : input.trim();
         Matcher um = URL.matcher(value);
         if (um.find()) {
+            String prefix = value.substring(0, um.start()).trim();
+            String surroundingText = prefix + " " + value.substring(um.end());
+            Matcher otherUrl = URL.matcher(value.substring(um.end()));
+            if (otherUrl.find()) throw new IllegalArgumentException("分享文字包含多个链接，无法确定目标视频；请只分享一个视频链接");
             value = um.group().replaceAll("[，。；、）】》]+$", "");
             if (value.startsWith("http://")) value = "https://" + value.substring(7);
             checkedUrl(value);
             URI uri = new URI(value);
+            java.util.Map<String,String> hints=parameters(uri);
             if ("b23.tv".equalsIgnoreCase(uri.getHost())) {
                 value = checkedUrl(resolver.resolve(value)); uri = new URI(value);
-            }
-            Matcher bm = BV.matcher(uri.getPath() == null ? "" : uri.getPath());
-            if (!bm.find()) throw new IllegalArgumentException("链接中没有找到 BV 号，请分享普通投稿视频");
-            int page = 1;
-            if (uri.getQuery() != null) for (String pair : uri.getQuery().split("&")) {
-                if (pair.startsWith("p=")) {
-                    try { page = Integer.parseInt(pair.substring(2)); }
-                    catch (NumberFormatException e) { throw new IllegalArgumentException("分 P 编号无效"); }
+                for(java.util.Map.Entry<String,String> hint:parameters(uri).entrySet()){
+                    if(hints.containsKey(hint.getKey())&&!hints.get(hint.getKey()).equals(hint.getValue()))throw new SourceIdentity.Mismatch("短链接跳转前后的视频或分 P 参数冲突");
+                    hints.put(hint.getKey(),hint.getValue());
                 }
             }
+            Matcher bm = Pattern.compile("^/video/(BV[0-9A-Za-z]{10})/?$", Pattern.CASE_INSENSITIVE).matcher(uri.getPath() == null ? "" : uri.getPath());
+            if (!bm.matches()) throw new IllegalArgumentException("链接中没有找到普通投稿视频，请重新分享 /video/BV 视频链接");
+            int page = 1;
+            if(hints.containsKey("p"))try{page=Integer.parseInt(hints.get("p"));}catch(NumberFormatException e){throw new IllegalArgumentException("分 P 编号无效");}
             if (page < 1 || page > 10000) throw new IllegalArgumentException("分 P 编号无效");
-            return new VideoLink(bm.group(1), page);
+            VideoLink parsed = new VideoLink(bm.group(1), page);
+            if(hints.containsKey("bvid")&&!parsed.bvid.equals(hints.get("bvid")))throw new SourceIdentity.Mismatch("链接中的 BV 参数与路径不一致");
+            parsed.expectedAid=positive(hints.get("aid"));parsed.expectedCid=positive(hints.get("cid"));
+            Matcher explicitId = BV.matcher(surroundingText);
+            while(explicitId.find())if(!parsed.bvid.equals("BV" + explicitId.group(1).substring(2)))throw new SourceIdentity.Mismatch("分享文字中的 BV 号与链接指向不同视频");
+            // Brackets and site suffixes may belong to the real title. Preserve the
+            // caption until metadata can distinguish literal text from share formatting.
+            if(!prefix.matches("(?i)(?:BV[0-9A-Za-z]{10}|(?:视频)?链接[:：]?)"))parsed.sharedTitle=prefix;
+            return parsed;
         }
         Matcher bm = BV.matcher(value);
         if (!bm.find()) throw new IllegalArgumentException("请粘贴 B 站链接、分享文字或 BV 号");
-        return new VideoLink(bm.group(1), 1);
+        String id=bm.group(1);while(bm.find())if(!id.equals(bm.group(1)))throw new IllegalArgumentException("包含多个 BV 号，无法确定目标视频");
+        return new VideoLink(id, 1);
+    }
+    private static java.util.Map<String,String> parameters(URI uri)throws Exception{
+        java.util.Map<String,String> result=new java.util.HashMap<>();
+        if(uri.getRawQuery()!=null)for(String pair:uri.getRawQuery().split("&")){
+            int split=pair.indexOf('=');String key=java.net.URLDecoder.decode(split<0?pair:pair.substring(0,split),"UTF-8");
+            if(!key.equals("p")&&!key.equals("aid")&&!key.equals("cid")&&!key.equals("bvid"))continue;
+            String value=java.net.URLDecoder.decode(split<0?"":pair.substring(split+1),"UTF-8");
+            if(result.containsKey(key))throw new SourceIdentity.Mismatch("链接包含重复的视频或分 P 参数");result.put(key,value);
+        }
+        return result;
+    }
+    private static long positive(String value){
+        if(value==null)return 0;try{long n=Long.parseLong(value);if(n>0)return n;}catch(NumberFormatException ignored){}
+        throw new SourceIdentity.Mismatch("链接的视频编号参数无效");
     }
 }

@@ -14,6 +14,10 @@ final class Json {
         }
         return new JSONObject(value);
     }
+    static JSONObject parseModelObject(String value)throws Exception{
+        try{return parseObject(value);}
+        catch(org.json.JSONException e){throw new IllegalArgumentException("模型传输已完成，但总结未通过 JSON 格式校验，未保存笔记。请重试或更换支持 JSON 输出的模型 / 接口。",e);}
+    }
     static String hash(String value) {
         try {
             byte[] bytes = java.security.MessageDigest.getInstance("SHA-256").digest(value.getBytes(java.nio.charset.StandardCharsets.UTF_8));

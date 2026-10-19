@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="300" viewBox="0 0 1200 300" role="img" aria-labelledby="title desc">
+<title id="title">随看：从视频到笔记的四步操作</title><desc id="desc">分享或打开视频，提取完整字幕，选择总结程度，核对并保存笔记。</desc>
+<rect width="1200" height="300" rx="24" fill="#f8f6fa"/>
+<g font-family="Microsoft YaHei,Noto Sans CJK SC,sans-serif">
+<text x="36" y="46" font-size="24" font-weight="700" fill="#24212e">从视频到笔记，只需四步</text>
+<text x="36" y="76" font-size="14" fill="#797382">只想要字幕？做到第二步，就可以复制或保存全文。</text>
+<g fill="#fff" stroke="#e5dfeb"><rect x="30" y="106" width="264" height="162" rx="18"/><rect x="322" y="106" width="264" height="162" rx="18"/><rect x="614" y="106" width="264" height="162" rx="18"/><rect x="906" y="106" width="264" height="162" rx="18"/></g>
+<g fill="#eb3478"><circle cx="62" cy="138" r="16"/><circle cx="354" cy="138" r="16"/><circle cx="646" cy="138" r="16"/><circle cx="938" cy="138" r="16"/></g>
+<g fill="#fff" text-anchor="middle" font-size="16" font-weight="700"><text x="62" y="144">1</text><text x="354" y="144">2</text><text x="646" y="144">3</text><text x="938" y="144">4</text></g>
+<g fill="#27232f" font-size="20" font-weight="700"><text x="88" y="145">选择视频</text><text x="380" y="145">提取全文</text><text x="672" y="145">生成总结</text><text x="964" y="145">回看与保存</text></g>
+<g fill="#777080" font-size="15"><text x="50" y="190">安卓：从 B 站分享链接</text><text x="50" y="219">浏览器：打开浮窗或侧栏</text><text x="342" y="190">核对视频与分 P</text><text x="342" y="219">完整字幕，独立滚动阅读</text><text x="634" y="190">简洁 / 标准 / 详细</text><text x="634" y="219">使用你配置的模型 API</text><text x="926" y="190">核对字幕依据</text><text x="926" y="219">复制、导出、查看历史</text></g>
+<g fill="#bbb0c5" font-size="25" text-anchor="middle"><text x="308" y="193">›</text><text x="600" y="193">›</text><text x="892" y="193">›</text></g>
+</g></svg>

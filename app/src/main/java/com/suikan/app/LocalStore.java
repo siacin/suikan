@@ -43,6 +43,7 @@ final class LocalStore {
         if (!note.optString("url").isEmpty()) out.append("原视频：").append(note.optString("url")).append("\n\n");
         if (note.optBoolean("demo")) out.append("这是一份演示笔记。\n\n");
         out.append("内容来源：").append(note.optString("source_label", "视频字幕")).append("\n\n");
+        if(!note.optBoolean("demo"))out.append("来源核对：").append(SourceIdentity.description(note)).append("\n\n");
         if(!note.optBoolean("demo"))out.append("总结详细程度：").append(SummaryDepth.label(SummaryDepth.ofNote(note))).append("\n\n");
         JSONObject summary = note.optJSONObject("summary"); if (summary == null) return out.toString();
         out.append(summary.optString("overview")).append("\n\n");

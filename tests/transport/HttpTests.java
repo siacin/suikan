@@ -31,6 +31,8 @@ public final class HttpTests {
         check(!defaults.has("max_tokens")&&!defaults.has("max_completion_tokens"),"default sends no app output ceiling");
         check(defaults.getJSONObject("thinking").getString("type").equals("disabled"),"DeepSeek thinking off by default");
         check(defaults.getBoolean("stream"),"model requests streaming output");
+        check(defaults.getJSONObject("response_format").getString("type").equals("json_object"),"JSON response constraint accompanies JSON prompts");
+        check(!call(BASE,"echo-format-unsupported",0,false).getJSONObject("received").has("response_format")&&count("echo-format-unsupported")==2,"only explicit unsupported JSON mode falls back without it");
         check(Http.MODEL_IDLE_TIMEOUT_MS==900000&&Http.MODEL_CALL_TIMEOUT_MS==3600000&&Http.MODEL_CONNECT_TIMEOUT_MS==60000,"long model timeouts");
         check(SummaryPipeline.sourceBudget("glm-5.3-flash")==8000&&SummaryPipeline.sourceBudget("deepseek-v4.1-flash")==8000&&SummaryPipeline.sourceBudget("other")==8000,"mobile requests use smaller budgets even for large-context models");
         JSONObject custom=call(BASE,"deepseek-v4.1-flash",8192,true).getJSONObject("received");
@@ -62,6 +64,23 @@ public final class HttpTests {
         check(call(BASE+"/responses","responses-test",16000,false).optBoolean("ok"),"normal Responses JSON");
         check(call(BASE+"/responses","responses-sse",16000,false).optBoolean("ok"),"normal Responses SSE");
         check(call(BASE,"keepalive-sse",0,false).optBoolean("ok"),"leading relay keepalive decoded");
+        for(String model:new String[]{"compat-bom","compat-cr","compat-crlf","compat-multiline","compat-terminal-reset","compat-terminal-open","compat-sniff-fragments"}){
+            long start=System.nanoTime();
+            check(call(BASE,model,0,false).optBoolean("ok")&&count(model)==1,"legal SSE and semantic completion: "+model);
+            check(java.util.concurrent.TimeUnit.NANOSECONDS.toSeconds(System.nanoTime()-start)<5,"completed answer does not wait for TCP close: "+model);
+        }
+        for(String model:new String[]{"compat-fallback","compat-malformed","compat-premature","compat-unterminated"}){
+            Http.Control fallbackControl=new Http.Control();JSONObject full=new JSONObject().put("transcript","[s1] 开始\n[s2] 结尾");
+            check(Json.parseObject(Http.complete(BASE,model,"fixture-key","x",full,fallbackControl)).optBoolean("ok")&&count(model)==2,"one ordinary JSON fallback: "+model);
+            try(InputStream in=new URL("http://127.0.0.1:18765/payloads").openStream();ByteArrayOutputStream out=new ByteArrayOutputStream()){
+                byte[] buf=new byte[4096];int n;while((n=in.read(buf))!=-1)out.write(buf,0,n);
+                org.json.JSONArray sent=new JSONObject(new String(out.toByteArray(),java.nio.charset.StandardCharsets.UTF_8)).getJSONArray(model);
+                check(sent.getJSONObject(0).getBoolean("stream")&&!sent.getJSONObject(1).getBoolean("stream")&&sent.getJSONObject(0).getString("hash").equals(sent.getJSONObject(1).getString("hash")),"fallback changes only transport, preserves complete input: "+model);
+            }
+            check(!fallbackControl.recoveredFrom.isEmpty()&&!fallbackControl.recoveredFrom.contains("fixture-key")&&fallbackControl.diagnostic().contains("普通 JSON"),"fallback diagnostics retained safely");
+        }
+        boolean unmarked=false;try{call(BASE,"compat-always-broken",0,false);}catch(IllegalArgumentException e){unmarked=e.getMessage().contains("正常结束标记");}
+        check(unmarked&&count("compat-always-broken")==2,"valid JSON without semantic completion cannot become a note");
         boolean broken=false;try{call(BASE,"broken-sse",0,false);}catch(IllegalArgumentException e){broken=e.getMessage().contains("完成标记");}check(broken,"premature EOF never accepted as complete JSON");
         check(count("broken-sse")==2,"broken streams retry only once");
         check(call(BASE,"reset-once",0,false).optBoolean("ok")&&count("reset-once")==2,"one connection reset recovers with one retry");
@@ -73,7 +92,7 @@ public final class HttpTests {
         check(call(BASE,"empty-json-once",0,false).optBoolean("ok")&&count("empty-json-once")==2,"empty JSON answer with null refusal retries once");
         boolean emptyRejected=false;try{call(BASE,"empty-always",0,false);}catch(Http.InterruptedGenerationException e){emptyRejected=e.getMessage().contains("正文为空");}
         check(emptyRejected&&count("empty-always")==2,"persistent empty answer fails after bounded retry");
-        boolean tlsRejected=false;Http.Control tls=new Http.Control();try{Http.complete("https://127.0.0.1:18766/v1","fixture","fixture-key","x",new JSONObject(),tls);}catch(Http.InterruptedGenerationException e){tlsRejected=!e.canSplit&&e.getMessage().contains("DNS / TCP / TLS")&&e.getMessage().contains("尚未收到");}
+        boolean tlsRejected=false;Http.Control tls=new Http.Control();try{Http.complete("https://127.0.0.1:18770/v1","fixture","fixture-key","x",new JSONObject(),tls);}catch(Http.InterruptedGenerationException e){tlsRejected=!e.canSplit&&e.getMessage().contains("DNS / TCP / TLS")&&e.getMessage().contains("尚未收到");}
         check(tlsRejected&&count("tls-close")==2,"TLS peer EOF retries once and reports pre-upload state without splitting");
         Http.Control cancelled=new Http.Control();cancelled.cancel();boolean stopped=false;try{Http.complete(BASE,"echo","fixture-key","x",new JSONObject(),cancelled);}catch(java.util.concurrent.CancellationException e){stopped=true;}check(stopped,"pre-cancelled request stops");
         boolean query=false;try{Http.endpoint("https://api.example/v1?key=secret");}catch(IllegalArgumentException e){query=true;}check(query,"credential query still rejected");

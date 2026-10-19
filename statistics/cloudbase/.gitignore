@@ -1,0 +1,4 @@
+.local/
+cloudbaserc.json
+node_modules/
+*.log

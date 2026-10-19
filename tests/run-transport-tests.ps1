@@ -6,15 +6,19 @@ if (!$TestRoot) { $TestRoot=Join-Path $projectRoot ('..\..\work\transport-tests\
 $JsonJar=(Resolve-Path -LiteralPath $JsonJar).Path
 New-Item -ItemType Directory -Force -Path $TestRoot | Out-Null
 $main=Join-Path $projectRoot 'app\src\main\java\com\suikan\app'
-$sources=@('Http.java','Json.java','VideoLink.java','Transcript.java','SummaryPipeline.java','LocalStore.java','SummaryDepth.java','SubtitleFiles.java','FastSummaryPipeline.java','SummaryDraft.java') | ForEach-Object {Join-Path $main $_}
+$sources=@('Http.java','Json.java','VideoLink.java','Transcript.java','SummaryPipeline.java','LocalStore.java','SummaryDepth.java','SubtitleFiles.java','FastSummaryPipeline.java','SummaryDraft.java','SourceIdentity.java','BiliClient.java','VideoSource.java') | ForEach-Object {Join-Path $main $_}
 $sources+=Join-Path $PSScriptRoot 'transport\android\webkit\CookieManager.java'
 $sources+=Join-Path $PSScriptRoot 'transport\HttpTests.java'
+$sources+=Join-Path $PSScriptRoot 'transport\HandshakeTests.java'
+$sources+=Join-Path $PSScriptRoot 'transport\UploadTests.java'
 $sources+=Join-Path $PSScriptRoot 'transport\PipelineTests.java'
 $sources+=Join-Path $PSScriptRoot 'transport\android\content\Context.java'
 $sources+=Join-Path $PSScriptRoot 'transport\android\util\AtomicFile.java'
 $sources+=Join-Path $PSScriptRoot 'CoreTests.java'
 $sources+=Join-Path $PSScriptRoot 'transport\FeatureTests.java'
 $sources+=Join-Path $PSScriptRoot 'transport\FastPipelineTests.java'
+$sources+=Join-Path $PSScriptRoot 'transport\SingleRequestTests.java'
+$sources+=Join-Path $PSScriptRoot 'transport\SourceIdentityTests.java'
 $env:JAVA_TOOL_OPTIONS='-Xms32m -Xmx256m -XX:MaxMetaspaceSize=128m'
 & (Join-Path $JdkHome 'bin\javac.exe') -encoding UTF-8 -source 8 -target 8 -cp $JsonJar -d $TestRoot @sources
 if ($LASTEXITCODE -ne 0) { throw 'Test compilation failed' }
@@ -31,3 +35,13 @@ if ($LASTEXITCODE -ne 0) { throw 'Subtitle / depth tests failed' }
 
 & (Join-Path $JdkHome 'bin\java.exe') -cp $classpath com.suikan.app.FastPipelineTests
 if ($LASTEXITCODE -ne 0) { throw 'Fast summary checks failed' }
+& (Join-Path $JdkHome 'bin\java.exe') -cp $classpath com.suikan.app.SingleRequestTests
+if ($LASTEXITCODE -ne 0) { throw 'Whole-transcript HTTP checks failed' }
+& (Join-Path $JdkHome 'bin\java.exe') -cp $classpath com.suikan.app.SourceIdentityTests
+if ($LASTEXITCODE -ne 0) { throw 'Source identity checks failed' }
+
+$tlsFixture=Join-Path $TestRoot ('tls-fixture-'+[guid]::NewGuid().ToString('N').Substring(0,8)+'.p12')
+& (Join-Path $JdkHome 'bin\keytool.exe') -genkeypair -storetype PKCS12 -alias fixture -keystore $tlsFixture -storepass fixture-only -keypass fixture-only -dname CN=localhost -ext SAN=IP:127.0.0.1,DNS:localhost -validity 2 -keyalg RSA -keysize 2048 -noprompt
+if ($LASTEXITCODE -ne 0) { throw 'Test-only TLS fixture generation failed' }
+& (Join-Path $JdkHome 'bin\java.exe') -cp $classpath com.suikan.app.HandshakeTests $tlsFixture
+if ($LASTEXITCODE -ne 0) { throw 'Handshake / response timeout checks failed' }

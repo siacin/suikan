@@ -18,6 +18,7 @@ final class ResultViews {
         intro.addView(Ui.text(context,note.optBoolean("demo") ? "示例笔记" : SummaryDepth.label(SummaryDepth.ofNote(note))+"视频笔记",12,Ui.ACCENT,true)); Ui.gap(intro,8);
         intro.addView(Ui.text(context,note.optString("title"),compact ? 19 : 23,Ui.INK,true)); Ui.gap(intro,8);
         intro.addView(Ui.text(context,note.optString("owner") + (note.optString("owner").isEmpty() ? "" : " · ") + note.optString("source_label"),12,Ui.MUTED,false));
+        if(!note.optBoolean("demo")){Ui.gap(intro,6);intro.addView(Ui.text(context,SourceIdentity.description(note),12,Ui.MUTED,false));}
         Ui.gap(intro,14); intro.addView(Ui.text(context,summary.optString("overview"),15)); root.addView(intro);
         for (String section : new String[]{"key_points","chapters","steps"}) {
             JSONArray rows = Json.array(summary,section); if (rows.length()==0) continue;

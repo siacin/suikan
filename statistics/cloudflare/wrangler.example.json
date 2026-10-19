@@ -1,0 +1,21 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "suikan-statistics",
+  "main": "src/worker.mjs",
+  "compatibility_date": "2026-10-09",
+  "workers_dev": true,
+  "preview_urls": false,
+  "observability": { "enabled": false },
+  "d1_databases": [{
+    "binding": "DB",
+    "database_name": "suikan-statistics",
+    "database_id": "00000000-0000-0000-0000-000000000000",
+    "migrations_dir": "migrations"
+  }],
+  "ratelimits": [
+    { "name": "CLIENT_LIMITER", "namespace_id": "9101901", "simple": { "limit": 12, "period": 60 } },
+    { "name": "ADMIN_LIMITER", "namespace_id": "9101902", "simple": { "limit": 60, "period": 60 } },
+    { "name": "PUBLIC_LIMITER", "namespace_id": "9101903", "simple": { "limit": 6000, "period": 60 } }
+  ],
+  "triggers": { "crons": ["0 18 * * *"] }
+}

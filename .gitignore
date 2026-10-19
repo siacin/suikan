@@ -16,3 +16,17 @@ __pycache__/
 .env.*
 *.pem
 *.p12
+statistics/data/
+statistics/*.sqlite3*
+statistics/.env
+!statistics/.env.example
+statistics/.local-data/
+statistics/admin-token.txt
+node_modules/
+statistics/cloudflare/.local/
+statistics/cloudflare/.wrangler/
+statistics/cloudflare/.dev.vars
+statistics/cloudflare/wrangler.json
+.local/
+statistics/cloudbase/cloudbaserc.json
+*.zip

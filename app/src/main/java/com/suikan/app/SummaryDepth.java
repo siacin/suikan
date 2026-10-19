@@ -5,7 +5,7 @@ final class SummaryDepth {
     static final String CONCISE="concise", STANDARD="standard", DETAILED="detailed";
     static String normalize(String value){return CONCISE.equals(value)||DETAILED.equals(value)?value:STANDARD;}
     static String label(String value){return CONCISE.equals(value)?"简洁":DETAILED.equals(value)?"详细":"标准";}
-    static String style(String value){return DETAILED.equals(value)?SummaryPipeline.STYLE:normalize(value)+"-direct-v2";}
+    static String style(String value){return DETAILED.equals(value)?SummaryPipeline.STYLE:normalize(value)+"-single-v3";}
     static String ofNote(org.json.JSONObject note){return note.has("summary_depth")?normalize(note.optString("summary_depth")):DETAILED;}
     static String synthesize(String value){
         String target=CONCISE.equals(value)?"生成简洁总结：正文通常约300至600字。总览约100字，3至5个核心要点，每条约40至80字。chapters和steps返回空数组；保留关键结论和必要条件。":"生成标准总结：正文通常约800至1500字。总览约150字，5至8个核心要点，可按需要列出3至5个简短章节和有实际价值的方法步骤。合并重复内容，不逐条复述所有材料。";

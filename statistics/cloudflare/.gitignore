@@ -1,0 +1,5 @@
+node_modules/
+.local/
+.wrangler/
+.dev.vars*
+wrangler.json

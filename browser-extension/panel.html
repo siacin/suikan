@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>随看 · 视频笔记</title><link rel="stylesheet" href="panel.css"><script type="module" src="src/panel.js"></script></head>
+<body>
+  <header class="brand"><div class="brand-icon" aria-hidden="true">▶</div><div><h1>随看 <span>浏览器版</span></h1><p>把看过的视频，变成可回看的笔记</p></div></header>
+  <nav class="tabs" aria-label="主导航"><button data-tab="video" class="selected">视频总结</button><button data-tab="history">历史笔记</button><button data-tab="settings">设置</button></nav>
+  <main>
+    <section id="view-video">
+      <article class="card video-card"><div class="eyebrow"><span id="selectionKind">当前视频</span><button id="refresh" class="text-button">重新识别</button></div>
+        <h2 id="videoTitle">打开一个 B 站视频</h2><p id="videoMeta" class="muted">点击页面右下角「随看」或浏览器工具栏图标，即可开始。</p>
+        <div class="row small-actions"><button id="showFloat" class="secondary">网页浮窗</button><a id="original" class="subtle-link" target="_blank" rel="noreferrer" hidden>打开原视频 ↗</a></div>
+        <details class="manual"><summary>也可以粘贴链接或 BV 号</summary><label for="linkInput" class="sr-only">视频链接</label><textarea id="linkInput" rows="3" placeholder="B 站分享文字、视频链接或 BV 号"></textarea><button id="useLink" class="secondary">使用此链接</button></details>
+      </article>
+      <article class="card controls"><div class="field-heading"><h2>开始整理</h2><span class="muted">整段字幕，一次总结</span></div>
+        <div class="depth" role="group" aria-label="总结详细程度"><button data-depth="concise">简洁</button><button data-depth="standard" class="selected">标准</button><button data-depth="detailed">详细</button></div>
+        <p id="depthHint" class="hint">抓住主要内容、关键理由与必要条件</p>
+        <button id="summarize" class="primary full" disabled>总结整段视频</button>
+        <div class="row"><button id="extract" class="secondary grow" disabled>只提取字幕</button><button id="importButton" class="secondary grow">导入字幕</button><input type="file" id="importFile" accept=".txt,.srt,.vtt,text/plain" hidden></div>
+        <button id="clearImport" class="text-button" hidden>清除导入文稿，使用视频字幕</button>
+      </article>
+      <article id="statusCard" class="card status" hidden aria-live="polite"><div class="field-heading"><h2 id="statusTitle">正在处理</h2><button id="stop" class="text-button">停止</button></div><p id="statusText"></p><p id="statusStats" class="muted"></p><div id="busyLine" class="busy-line"></div><p id="draft" class="draft" hidden></p></article>
+      <article id="subtitleCard" class="card" hidden><details id="subtitleDetails" open><summary class="field-heading"><h2>完整字幕 <span id="subtitleCount"></span></h2><span class="muted">收起 / 展开</span></summary><p id="sourceStatus" class="source-status"></p><pre id="transcript" class="transcript" tabindex="0" aria-label="完整字幕，内部滚动"></pre></details>
+        <div class="row subtitle-tools"><label class="sr-only" for="subtitleFormat">字幕格式</label><select id="subtitleFormat"><option value="plain">TXT 纯文字</option><option value="timed">TXT 带时间</option><option value="srt">SRT 字幕</option></select><button id="copySubtitle" class="secondary">复制</button><button id="saveSubtitle" class="secondary">保存文件</button></div>
+      </article>
+      <article id="noteCard" class="card" hidden><div class="field-heading"><div><div class="eyebrow">视频笔记</div><h2 id="noteTitle"></h2></div><span id="noteDepth" class="pill"></span></div><div id="noteBody" class="note-body"></div><div class="row"><button id="copyNote" class="secondary grow">复制笔记</button><button id="saveNote" class="secondary grow">导出 Markdown</button></div></article>
+      <div id="emptyState" class="empty-state"><span>✦</span><p>让每次观看，都留下点什么。</p><small>仅提取字幕无需模型 API。</small></div>
+    </section>
+    <section id="view-history" hidden><div class="section-title"><h2>历史笔记</h2><button id="refreshHistory" class="text-button">刷新</button></div><p class="muted">保存在当前浏览器，最多保留最近 30 篇。</p><div id="historyList"></div></section>
+    <section id="view-settings" hidden><form id="settingsForm" class="card"><h2>模型设置</h2><p class="muted">直接调用你配置的 API，与安卓端分别设置。</p>
+      <label for="endpoint">API 地址</label><input id="endpoint" type="url" required placeholder="https://…/v1"><label for="model">模型名称</label><input id="model" required placeholder="deepseek-v4.1-flash">
+      <label for="apiKey">API Key</label><input id="apiKey" type="password" autocomplete="off" spellcheck="false" placeholder="填写你的 API Key"><label class="check"><input id="rememberKey" type="checkbox">在此浏览器保存密钥</label><p class="hint">不勾选时，密钥仅在本次浏览器会话内保存。</p>
+      <details><summary>生成参数</summary><label for="outputTokens">输出额度（tokens）</label><input id="outputTokens" type="number" value="0" min="0" step="1"><p class="hint">0 使用服务商默认值；详细程度由上面的选择决定。服务商仍有自身额度限制。</p><label class="check"><input id="disableThinking" type="checkbox" checked>DeepSeek 关闭深度思考</label><label class="check"><input id="lightGlm" type="checkbox" checked>GLM 5.3 使用轻量思考</label></details>
+      <button type="submit" class="primary full">保存并授权接口访问</button><button id="testModel" type="button" class="secondary full">测试模型连接</button><p class="hint">连接测试会发送一个短请求，服务商可能计费。</p><button id="forgetKey" type="button" class="text-button">清除已保存密钥</button>
+    </form><details class="card"><summary>查看当前总结提示词</summary><pre id="promptText" class="prompt-text"></pre></details><p class="hint">使用统计默认开启：记录随机安装编号及你主动总结的视频标题、BV 号、分 P、详细程度和结果，用于管理后台。字幕、笔记正文、密钥和 Cookie 不会上报。视频记录保留 90 天。</p><div class="about">版本 0.1.1 · 作者 Cin</div></section>
+  </main>
+  <div id="toast" role="status" hidden></div>
+</body></html>

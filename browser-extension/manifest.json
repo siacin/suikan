@@ -1,0 +1,17 @@
+{
+  "manifest_version": 3,
+  "name": "随看 · B站视频笔记",
+  "version": "0.1.1",
+  "minimum_chrome_version": "116",
+  "description": "在 B 站视频页打开浮窗或侧栏，提取完整字幕、生成不同详细程度的总结、保存本地笔记。作者 Cin。",
+  "permissions": ["storage", "alarms", "sidePanel", "activeTab", "clipboardWrite", "declarativeNetRequestWithHostAccess"],
+  "host_permissions": ["https://*.bilibili.com/*", "https://b23.tv/*", "https://aisubtitle.hdslb.com/*", "https://suikan-d9gi643yk8b95195e.service.tcloudbase.com/*"],
+  "optional_host_permissions": ["https://*/*", "http://localhost/*", "http://127.0.0.1/*"],
+  "background": { "service_worker": "background.js", "type": "module" },
+  "action": { "default_title": "打开随看侧栏", "default_icon": {"16":"icons/16.png","32":"icons/32.png"} },
+  "side_panel": { "default_path": "panel.html" },
+  "icons": {"16":"icons/16.png","32":"icons/32.png","48":"icons/48.png","128":"icons/128.png"},
+  "content_scripts": [{ "matches": ["https://www.bilibili.com/*"], "js": ["content.js"], "run_at": "document_idle" }],
+  "web_accessible_resources": [{ "resources": ["panel.html"], "matches": ["https://www.bilibili.com/*"] }],
+  "content_security_policy": { "extension_pages": "script-src 'self'; object-src 'none'; base-uri 'none';" }
+}

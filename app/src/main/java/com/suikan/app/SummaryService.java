@@ -80,6 +80,7 @@ public final class SummaryService extends Service {
         ticker.postDelayed(heartbeat,1000);
         sendBroadcast(new Intent(UPDATE).setPackage(getPackageName()));
         executor.execute(()->{
+            boolean counted=false;int outcome=UsageCounter.FAILED;
             try {
                 if(probe){
                     task.check();SecureSettings settings=new SecureSettings(this);long begin=System.nanoTime();
@@ -87,14 +88,16 @@ public final class SummaryService extends Service {
                     percent=100;message="模型连接测试通过，用时 "+java.util.concurrent.TimeUnit.NANOSECONDS.toSeconds(System.nanoTime()-begin)+" 秒。已收到完整回答；长视频仍需保持连接稳定。";
                     return;
                 }
-                task.check();byte[] payload=java.nio.file.Files.readAllBytes(payloadFile.toPath());payloadFile.delete();
+                task.check();UsageAnalytics.get(this).requireAccess();task.check();
+                byte[] payload=java.nio.file.Files.readAllBytes(payloadFile.toPath());payloadFile.delete();
                 JSONObject request=new JSONObject(new String(payload,java.nio.charset.StandardCharsets.UTF_8));
-                if(subtitles){JSONObject source=VideoSource.read(request.optString("input"),request.optString("transcript"),task,this::update);task.check();new SubtitleStore(this).save(source);subtitleReady=true;percent=100;message="完整字幕已提取，可复制或保存文件";return;}
+                UsageAnalytics.get(this).operation(subtitles,UsageCounter.STARTED);counted=true;
+                if(subtitles){JSONObject source=VideoSource.read(request.optString("input"),request.optString("transcript"),task,this::update);task.check();new SubtitleStore(this).save(source);subtitleReady=true;percent=100;message="完整字幕已提取，可复制或保存文件";outcome=UsageCounter.SUCCEEDED;return;}
                 JSONObject note=new SummaryEngine(this,task).run(request.optString("input"),request.optString("transcript"),force,request.optString("depth",SummaryDepth.STANDARD),this::update);
-                noteId=note.optString("id");message="整段视频总结已保存";
-            }catch(CancellationException e){message="已停止任务";}
-            catch(Exception e){if(task.cancelled.get())message="已停止任务";else{error=Http.redact(e.getMessage(),safeKey());message=subtitles?"这次字幕提取未完成":"这次总结未完成";}}
-            finally{if(payloadFile!=null)payloadFile.delete();running=false;modelWaiting=false;draft="";ticker.removeCallbacks(heartbeat);sendBroadcast(new Intent(UPDATE).setPackage(getPackageName()));stopForeground(STOP_FOREGROUND_REMOVE);stopSelf(startId);}
+                noteId=note.optString("id");message="整段视频总结已保存";outcome=UsageCounter.SUCCEEDED;
+            }catch(CancellationException e){outcome=UsageCounter.CANCELLED;message="已停止任务";}
+            catch(Exception e){if(task.cancelled.get()){outcome=UsageCounter.CANCELLED;message="已停止任务";}else{error=Http.redact(e.getMessage(),safeKey());message=subtitles?"这次字幕提取未完成":"这次总结未完成";}}
+            finally{if(counted)UsageAnalytics.get(this).operation(subtitles,outcome);if(payloadFile!=null)payloadFile.delete();running=false;modelWaiting=false;draft="";ticker.removeCallbacks(heartbeat);sendBroadcast(new Intent(UPDATE).setPackage(getPackageName()).putExtra("task_completed",true));stopForeground(STOP_FOREGROUND_REMOVE);stopSelf(startId);}
         });return START_NOT_STICKY;
     }
     private String safeKey(){try{return new SecureSettings(this).key();}catch(Exception e){return "";}}

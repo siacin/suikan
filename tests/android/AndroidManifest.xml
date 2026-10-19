@@ -6,4 +6,6 @@
     <instrumentation android:name="com.suikan.app.LiveHarness" android:targetPackage="com.suikan.app" android:functionalTest="true" />
     <instrumentation android:name="com.suikan.app.FeatureHarness" android:targetPackage="com.suikan.app" android:functionalTest="true" />
     <instrumentation android:name="com.suikan.app.SpeedHarness" android:targetPackage="com.suikan.app" android:functionalTest="true" />
+    <instrumentation android:name="com.suikan.app.UsageHarness" android:targetPackage="com.suikan.app" android:functionalTest="true" />
+    <instrumentation android:name="com.suikan.app.SourceHarness" android:targetPackage="com.suikan.app" android:functionalTest="true" />
 </manifest>

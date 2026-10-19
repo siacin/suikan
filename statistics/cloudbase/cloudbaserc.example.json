@@ -1,0 +1,17 @@
+{
+  "version": "2.0",
+  "envId": "replace-with-real-environment-id",
+  "region": "ap-shanghai",
+  "functionRoot": "./functions",
+  "functions": [{
+    "name": "suikan-statistics",
+    "type": "HTTP",
+    "runtime": "Nodejs20.19",
+    "handler": "index.main",
+    "memorySize": 256,
+    "timeout": 3,
+    "installDependency": true,
+    "public": true,
+    "gatewayPath": "/"
+  }]
+}
